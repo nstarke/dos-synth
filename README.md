@@ -29,3 +29,12 @@ The VM also has a collection of DOS trackers
 
 ## SIMTEL
 The VM also contains the MUSIC and SOUND directories from the SIMTEL archive.
+
+## Configuration
+The 86Box VM has two soundcards:
+1) SoundBlaster 16
+2) Gravis UltraSound
+
+Additionally:
+* The CuteMouse driver is installed
+* The MS-DOS CDROM driver is installed
