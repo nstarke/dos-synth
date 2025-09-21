@@ -38,3 +38,8 @@ The 86Box VM has two soundcards:
 Additionally:
 * The CuteMouse driver is installed
 * The MS-DOS CDROM driver is installed
+
+## Keystroke Agent
+In `C:\AGENT` there is a MS-DOS `COM` TSR program that will inject keystrokes received on `COM1` into the BIOS keyboard buffer.  This works to issue commands on the CLI, but not to trigger notes on the synthesizers.
+
+You can run this program without arguments: `C:\AGENT\SERIAL_I.COM`
