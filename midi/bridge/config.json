@@ -1,0 +1,14 @@
+{
+  "_comment": "dos-synth MIDI bridge configuration. All values can be overridden with CLI flags.",
+
+  "midi": {
+    "input": "auto",
+    "_input_comment": "MIDI input device: 'auto' (first found), device name substring, or 0-based index.",
+
+    "output": "auto",
+    "_output_comment": "86Box MIDI output port: 'auto' (search for 86Box port), name substring, or 0-based index.",
+
+    "channel": "all",
+    "_channel_comment": "MIDI channel filter for input: 'all' or channel number 1-16."
+  }
+}

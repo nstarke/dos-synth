@@ -1,0 +1,18 @@
+{
+  "name": "dos-synth-midi-bridge",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "MIDI router: forwards MIDI from an external source to 86Box's MIDI input port, which the dos-synth TSR converts to synthesizer keypresses inside the VM.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "list":  "node index.js --list",
+    "test":  "node test.js"
+  },
+  "dependencies": {
+    "jzz": "^1.8.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
