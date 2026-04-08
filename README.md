@@ -39,6 +39,16 @@ The VM also has a collection of DOS trackers in `C:\TRACKERS`.
 
 The VM also contains the MUSIC and SOUND directories from the SIMTEL archive at `C:\SIMTEL`.
 
+## Linux: Mouse Movement
+
+On Linux, 86Box must be launched with two environment variables to enable mouse capture inside the VM:
+
+```sh
+QT_QPA_PLATFORM=xcb SDL_VIDEODRIVER=x11 86box
+```
+
+Without these, Qt and SDL use the native Wayland backend, where `SDL_SetRelativeMouseMode` does not deliver relative motion events to the VM. Setting `QT_QPA_PLATFORM=xcb` forces Qt onto XWayland, and `SDL_VIDEODRIVER=x11` forces SDL to match.
+
 ## VM Configuration
 
 The 86Box VM has two soundcards:
