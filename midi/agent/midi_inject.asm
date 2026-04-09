@@ -11,9 +11,20 @@
 ; note-off, so the key appears held for the full MIDI note duration and the
 ; synthesizer sustains accordingly.
 ;
-; MIDI note mapping (12 keys, all octaves clamped):
+; Usage: MIDI_INJ [/VR | /FMS4 | /DEFAULT]
+;   /VR      VR_DEMO.EXE key layout (awsdefyhujik), 12-note clamping
+;   /FMS4    default layout, 12-note clamping only (no q-row keys)
+;   /DEFAULT restore two-octave default layout
+;
+; If the TSR is already installed, re-running with a flag hot-swaps the
+; active key layout without rebooting.  Running with no flag reports the
+; current active mode.  /VR, /FMS4, and /DEFAULT are mutually exclusive.
+;
+; MIDI note mapping:
 ;   C   C#  D   D#  E   F   F#  G   G#  A   A#  B
-;   z   s   x   d   c   v   g   b   h   n   j   m
+;   z   s   x   d   c   v   g   b   h   n   j   m   (default, C3)
+;   q   2   w   3   e   r   5   t   6   y   7   u   (default, C4)
+;   a   w   s   d   e   f   y   h   u   j   i   k   (/VR, 12-note)
 ;
 ; Notes outside MIDI 48-71 are clamped to the nearest octave within range.
 ; All MIDI channels are accepted.  Running status is supported.
@@ -22,11 +33,30 @@
 ;   bit 6 (0x40): STATUS_OUTPUT_NOT_READY  — when SET, MPU cannot accept cmd
 ;   bit 7 (0x80): STATUS_INPUT_NOT_READY   — when SET, no MIDI data to read
 
+%define MPU_DATA    0x330
+%define MPU_CMD     0x331
+%define MPU_STAT    0x331
+%define MPU_ONR     0x40    ; Output Not Ready (bit 6): poll before writing cmd
+%define MPU_INR     0x80    ; Input Not Ready  (bit 7): poll before reading data
+
+%define BASE_NOTE   48      ; lowest mapped MIDI note (C3)
+%define NOTE_COUNT  24      ; number of mapped notes  (two octaves, all clamped)
+
+%define MAX_PER_TICK 8      ; max MIDI bytes consumed per timer tick
+
+%define STATE_IDLE  0
+%define STATE_NK    1
+%define STATE_NV    2
+%define STATE_S1    3
+%define STATE_S2    4
+%define STATE_SX    5
+
     org 0x100
-    jmp install
+    jmp near install        ; forced near (3 bytes) so magic_id is always at 0x103
 
 ; ==================== RESIDENT DATA ====================
 
+magic_id    dw 0x4D49       ; 'MI' — checked by re-runs to detect installed TSR
 old_off     dw 0            ; saved INT 8 vector (offset)
 old_seg     dw 0            ; saved INT 8 vector (segment)
 
@@ -41,24 +71,9 @@ q_wr        db 0            ; producer pointer
 midi_state  db 0
 midi_status db 0            ; running status (last status byte seen)
 midi_note   db 0            ; note number latched in state NK→NV
-
-%define MPU_DATA    0x330
-%define MPU_CMD     0x331
-%define MPU_STAT    0x331
-%define MPU_ONR     0x40    ; Output Not Ready (bit 6): poll before writing cmd
-%define MPU_INR     0x80    ; Input Not Ready  (bit 7): poll before reading data
-
-%define BASE_NOTE   48      ; lowest mapped MIDI note (C3)
-%define NOTE_COUNT  12      ; number of mapped notes  (one octave, all clamped)
-
-%define MAX_PER_TICK 8      ; max MIDI bytes consumed per timer tick
-
-%define STATE_IDLE  0
-%define STATE_NK    1
-%define STATE_NV    2
-%define STATE_S1    3
-%define STATE_S2    4
-%define STATE_SX    5
+use_vr      db 0            ; set to 1 when /VR flag is given
+use_fms4    db 0            ; set to 1 when /FMS4 flag is given
+note_hi     db BASE_NOTE + 24 ; exclusive upper bound for note clamping
 
 ; ==================== RESIDENT CODE ====================
 
@@ -123,17 +138,22 @@ note_to_sc:
     jae .clamp_hi
     add al, 12
     jmp .clamp_lo
-    ; Clamp above range: subtract 12 until < BASE_NOTE + NOTE_COUNT
+    ; Clamp above range: subtract 12 until below note_hi
 .clamp_hi:
-    cmp al, BASE_NOTE + NOTE_COUNT
+    cmp al, [cs:note_hi]
     jb  .lookup
     sub al, 12
     jmp .clamp_hi
 .lookup:
-    sub al, BASE_NOTE       ; offset into table (0-23)
+    sub al, BASE_NOTE       ; offset into table (0-11)
     xor bx, bx
     mov bl, al
+    cmp byte [cs:use_vr], 0
+    jne .vr_table
     mov al, [cs:note2sc + bx]
+    ret
+.vr_table:
+    mov al, [cs:note2sc_vr + bx]
     ret
 
 ; ------------------------------------------------------------------
@@ -253,13 +273,24 @@ proc_byte:
     ret
 
 ; ------------------------------------------------------------------
-; MIDI note → XT Set-1 make code lookup table (24 entries)
+; MIDI note → XT Set-1 make code lookup tables.
 ; Index 0 = BASE_NOTE (MIDI 48 = C3).
+; note2sc    : 24 entries (C3–B4), default two-octave layout
+; note2sc_fms: 12 entries (C3–B3), /FMS4 single-octave layout (same lower row)
+; note2sc_vr :  12 entries (C3–B3), /VR layout
 ; ------------------------------------------------------------------
 note2sc:
-    ;  C     C#    D     D#    E     F     F#    G     G#    A     A#    B
+    ;  C3    C#3   D3    D#3   E3    F3    F#3   G3    G#3   A3    A#3   B3
     ;  z     s     x     d     c     v     g     b     h     n     j     m
     db 0x2C, 0x1F, 0x2D, 0x20, 0x2E, 0x2F, 0x22, 0x30, 0x23, 0x31, 0x24, 0x32
+    ;  C4    C#4   D4    D#4   E4    F4    F#4   G4    G#4   A4    A#4   B4
+    ;  q     2     w     3     e     r     5     t     6     y     7     u
+    db 0x10, 0x03, 0x11, 0x04, 0x12, 0x13, 0x06, 0x14, 0x07, 0x15, 0x08, 0x16
+
+note2sc_vr:
+    ;  C3    C#3   D3    D#3   E3    F3    F#3   G3    G#3   A3    A#3   B3
+    ;  a     w     s     d     e     f     y     h     u     j     i     k
+    db 0x1E, 0x11, 0x1F, 0x20, 0x12, 0x21, 0x15, 0x23, 0x16, 0x24, 0x17, 0x25
 
 ; ------------------------------------------------------------------
 ; INT 8 (timer, ~18.2 Hz) handler
@@ -318,32 +349,216 @@ handler08:
 ; ==================== INIT CODE (discarded after TSR) ====================
 
 ; ------------------------------------------------------------------
-; install: presence-check + UART mode init, then hook INT 8.
+; install: on first run, hook INT 8 and go resident.
+;          on re-run, detect the installed copy via magic_id in the
+;          INT 8 handler's segment, then patch its resident data
+;          (use_vr, use_fms4, note_hi) in place and exit.
 ;
-; 86Box starts the MPU-401 in UART mode.  Sending RESET (0xFF)
-; from UART mode causes 86Box to return without queuing an ACK,
-; and 0x3F sent while still in UART mode is silently ignored.
-; So we skip the reset:
-;   • Send 0x3F directly.
-;   • If an ACK arrives we were in intelligent mode → now UART.
-;   • If no ACK (timeout) we were already in UART mode → fine.
-; Only fail if the status port doesn't look like an MPU-401
-; (bits 0-5 must always read as 1 on a real / emulated MPU-401).
+; Flags (mutually exclusive):
+;   /VR      awsdefyhujik layout, 12-note clamping
+;   /FMS4    zsxdcvgbhnjm layout, 12-note clamping (no q-row)
+;   /DEFAULT zsxdcvgbhnjm / q2w3er5t6y7u layout (two octaves)
+;
+; Running with no flag when already installed prints the active mode.
+;
+; 86Box starts the MPU-401 in UART mode.  Sending 0x3F (UART cmd):
+;   • ACK received → was in intelligent mode, now UART.
+;   • No ACK (timeout) → already in UART mode, fine.
+; Fail only if status port bits 0-5 are not all 1 (no MPU present).
 ; ------------------------------------------------------------------
 
 install:
+    ; BL = 1 if /DEFAULT was given (init-only; not stored in resident data)
+    xor bl, bl
+
+    ; ---- Parse /VR, /FMS4, /DEFAULT from command tail ----
+    ; Peek-style: advance SI by 1 per main-loop iteration (the lodsb for '/');
+    ; chars after '/' are inspected with [si]/[si+N] without consuming them,
+    ; so unrecognised sequences are naturally re-scanned.
+    mov si, 0x81
+    xor ch, ch
+    mov cl, [0x80]
+.find_slash:
+    test cx, cx
+    jz  .parse_done
+    lodsb
+    dec cx
+    or al, 0x20
+    cmp al, '/'
+    jne .find_slash
+
+    ; /VR — 2 chars
+    cmp cx, 2
+    jb .find_slash
+    mov al, [si]
+    or al, 0x20
+    cmp al, 'v'
+    jne .try_fms4
+    mov al, [si+1]
+    or al, 0x20
+    cmp al, 'r'
+    jne .try_fms4
+    mov byte [use_vr], 1
+    jmp .find_slash
+
+    ; /FMS4 — 4 chars
+.try_fms4:
+    cmp cx, 4
+    jb .try_default
+    mov al, [si]
+    or al, 0x20
+    cmp al, 'f'
+    jne .try_default
+    mov al, [si+1]
+    or al, 0x20
+    cmp al, 'm'
+    jne .try_default
+    mov al, [si+2]
+    or al, 0x20
+    cmp al, 's'
+    jne .try_default
+    mov al, [si+3]
+    cmp al, '4'
+    jne .try_default
+    mov byte [use_fms4], 1
+    jmp .find_slash
+
+    ; /DEFAULT — 7 chars
+.try_default:
+    cmp cx, 7
+    jb .find_slash
+    mov al, [si]
+    or al, 0x20
+    cmp al, 'd'
+    jne .find_slash
+    mov al, [si+1]
+    or al, 0x20
+    cmp al, 'e'
+    jne .find_slash
+    mov al, [si+2]
+    or al, 0x20
+    cmp al, 'f'
+    jne .find_slash
+    mov al, [si+3]
+    or al, 0x20
+    cmp al, 'a'
+    jne .find_slash
+    mov al, [si+4]
+    or al, 0x20
+    cmp al, 'u'
+    jne .find_slash
+    mov al, [si+5]
+    or al, 0x20
+    cmp al, 'l'
+    jne .find_slash
+    mov al, [si+6]
+    or al, 0x20
+    cmp al, 't'
+    jne .find_slash
+    mov bl, 1
+    jmp .find_slash
+
+.parse_done:
+    ; At most one mode flag may be given
+    xor al, al
+    add al, [use_vr]
+    add al, [use_fms4]
+    add al, bl          ; bl = 1 if /DEFAULT
+    cmp al, 2
+    jae .conflict
+    ; AL = 0 (no flag) or 1 (exactly one flag)
+
+    ; ---- Detect already-installed copy via INT 8 handler segment ----
+    ; INT 21h/35h → ES:BX = current INT 8 vector.
+    ; If ES carries our magic_id signature we are already resident.
+    push ax                     ; save flag count across int call
+    mov ax, 0x3508
+    int 21h                     ; ES:BX = INT 8 vector
+    pop ax
+
+    cmp word [es:magic_id], 0x4D49
+    jne .fresh_install
+
+    ; ---- Already installed ----
+    cmp al, 0
+    je .report_status           ; no flag → show current mode
+
+    ; Patch resident data in-place through ES
+    cmp byte [use_vr], 0
+    jne .patch_vr
+    cmp byte [use_fms4], 0
+    jne .patch_fms4
+    ; /DEFAULT
+    mov byte [es:use_vr],   0
+    mov byte [es:use_fms4],  0
+    mov byte [es:note_hi],   BASE_NOTE + 24
+    mov dx, msg_sw_default
+    jmp .patch_print
+.patch_vr:
+    mov byte [es:use_vr],   1
+    mov byte [es:use_fms4],  0
+    mov byte [es:note_hi],   BASE_NOTE + 12
+    mov dx, msg_sw_vr
+    jmp .patch_print
+.patch_fms4:
+    mov byte [es:use_vr],   0
+    mov byte [es:use_fms4],  1
+    mov byte [es:note_hi],   BASE_NOTE + 12
+    mov dx, msg_sw_fms4
+.patch_print:
+    mov ah, 9
+    int 21h
+    mov ax, 0x4C00
+    int 21h
+
+.report_status:
+    cmp byte [es:use_vr], 0
+    jne .rep_vr
+    cmp byte [es:use_fms4], 0
+    jne .rep_fms4
+    mov dx, msg_stat_default
+    jmp .rep_print
+.rep_vr:
+    mov dx, msg_stat_vr
+    jmp .rep_print
+.rep_fms4:
+    mov dx, msg_stat_fms4
+.rep_print:
+    mov ah, 9
+    int 21h
+    mov ax, 0x4C00
+    int 21h
+
+.conflict:
+    mov dx, msg_conflict
+    mov ah, 9
+    int 21h
+    mov ax, 0x4C01
+    int 21h
+
+    ; ---- Fresh install ----
+.fresh_install:
+    ; Write mode into our own resident data before going TSR
+    cmp byte [use_vr], 0
+    jne .fi_12
+    cmp byte [use_fms4], 0
+    je  .fi_mode_done
+.fi_12:
+    mov byte [note_hi], BASE_NOTE + 12
+.fi_mode_done:
+
     mov dx, msg_init
     mov ah, 9
     int 21h
 
-    ; ---- Presence check ----
+    ; Presence check (bits 0-5 of status port must all be 1)
     mov dx, MPU_STAT
     in  al, dx
     and al, 0x3F
     cmp al, 0x3F
-    jne .no_mpu             ; port absent or wrong device
+    jne .no_mpu
 
-    ; ---- Wait for output-ready, then send UART mode command ----
+    ; Wait for output-ready, send UART mode command
     mov cx, 0xFFFF
 .wait_w:
     mov dx, MPU_STAT
@@ -355,20 +570,19 @@ install:
     mov dx, MPU_CMD
     out dx, al
 
-    ; ---- Wait for ACK (generous timeout) ----
-    ; Timeout is normal when already in UART mode — proceed either way.
+    ; Wait for ACK (timeout = already in UART mode, which is fine)
     mov cx, 0xFFFF
 .wait_r:
     mov dx, MPU_STAT
     in  al, dx
     test al, MPU_INR
     loopnz .wait_r
-    jnz .uart_ready         ; no ACK → already in UART mode
+    jnz .uart_ready
     mov dx, MPU_DATA
-    in  al, dx              ; discard ACK byte
+    in  al, dx              ; discard ACK
 .uart_ready:
 
-    ; ---- Hook INT 8 (timer IRQ0) ----
+    ; Hook INT 8
     mov ax, 0x3508
     int 21h
     mov [old_off], bx
@@ -378,13 +592,22 @@ install:
     mov ax, 0x2508
     int 21h
 
+    cmp byte [use_vr], 0
+    jne .print_vr
+    cmp byte [use_fms4], 0
+    jne .print_fms4
     mov dx, msg_ok
+    jmp .print_done
+.print_vr:
+    mov dx, msg_ok_vr
+    jmp .print_done
+.print_fms4:
+    mov dx, msg_ok_fms4
+.print_done:
     mov ah, 9
     int 21h
 
-    ; ---- Stay resident ----
-    ; DX = paragraphs from PSP start (offset 0) through the install label.
-    ; Everything before install: is resident; everything at/after is discarded.
+    ; Stay resident: keep everything before install:
     mov dx, install
     add dx, 15
     shr dx, 4
@@ -398,6 +621,15 @@ install:
     mov ax, 0x4C01
     int 21h
 
-msg_init   db 'MIDI->KBC injector (MPU-401 @ 0x330)...', 13, 10, '$'
-msg_ok     db 'Installed. MIDI notes fire INT9 via 8042 D2h.', 13, 10, '$'
-msg_no_mpu db 'MPU-401 not found or did not ACK UART mode.', 13, 10, '$'
+msg_init        db 'MIDI->KBC injector (MPU-401 @ 0x330)...', 13, 10, '$'
+msg_ok          db 'Installed (zsxdcvgbhnjm / q2w3er5t6y7u). INT9 via 8042 D2h.', 13, 10, '$'
+msg_ok_vr       db 'Installed /VR (awsdefyhujik). INT9 via 8042 D2h.', 13, 10, '$'
+msg_ok_fms4     db 'Installed /FMS4 (zsxdcvgbhnjm). INT9 via 8042 D2h.', 13, 10, '$'
+msg_sw_default  db 'Mode: default (zsxdcvgbhnjm / q2w3er5t6y7u).', 13, 10, '$'
+msg_sw_vr       db 'Mode: /VR (awsdefyhujik).', 13, 10, '$'
+msg_sw_fms4     db 'Mode: /FMS4 (zsxdcvgbhnjm).', 13, 10, '$'
+msg_stat_default db 'Active: default (zsxdcvgbhnjm / q2w3er5t6y7u).', 13, 10, '$'
+msg_stat_vr     db 'Active: /VR (awsdefyhujik).', 13, 10, '$'
+msg_stat_fms4   db 'Active: /FMS4 (zsxdcvgbhnjm).', 13, 10, '$'
+msg_no_mpu      db 'MPU-401 not found or did not ACK UART mode.', 13, 10, '$'
+msg_conflict    db 'Error: /VR, /FMS4, /DEFAULT are mutually exclusive.', 13, 10, '$'

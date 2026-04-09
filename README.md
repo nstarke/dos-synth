@@ -86,7 +86,9 @@ The agent works as follows:
 
    Sending make-only on note-on and break-only on note-off means the key is held for the full duration of the MIDI note, so the synthesizer sustains correctly.
 
-4. **Note mapping** — MIDI notes are mapped to the standard DOS piano keyboard layout across two octaves (MIDI 48–71 = C3–B4):
+4. **Note mapping** — MIDI notes are mapped to keyboard keys depending on the active mode (see **Flags** below).
+
+   **Default** — two octaves, MIDI 48–71 (C3–B4):
 
    | MIDI | Note | Key | | MIDI | Note | Key |
    |------|------|-----|-|------|------|-----|
@@ -104,6 +106,30 @@ The agent works as follows:
    | 59   | B3   | m   | | 71   | B4   | u   |
 
    Notes outside MIDI 48–71 are transposed by octaves until they fall within range.  All MIDI channels are accepted.
+
+### Flags
+
+```
+MIDI_INJ [/VR | /FMS4 | /DEFAULT]
+```
+
+The flags select the key layout and note range.  They are mutually exclusive.
+
+| Flag | Layout | Notes | Use for |
+|------|--------|-------|---------|
+| *(none)* | `zsxdcvgbhnjm` / `q2w3er5t6y7u` | MIDI 48–71 (C3–B4), two octaves | Default; most synths |
+| `/FMS4` | `zsxdcvgbhnjm` | MIDI 48–59 (C3–B3), one octave | FMS4 and synths that don't use the `q`-row |
+| `/VR` | `awsdefyhujik` | MIDI 48–59 (C3–B3), one octave | `VR_DEMO.EXE` |
+| `/DEFAULT` | *(restores default)* | MIDI 48–71 (C3–B4), two octaves | Switch back after `/VR` or `/FMS4` |
+
+**Hot-swapping** — if the TSR is already installed, re-running it with a flag switches the active layout immediately without rebooting the VM:
+
+```
+C:\AGENT\MIDI_INJ.COM /VR       ← switch to VR layout
+C:\AGENT\MIDI_INJ.COM /FMS4     ← switch to FMS4 layout
+C:\AGENT\MIDI_INJ.COM /DEFAULT  ← switch back to default
+C:\AGENT\MIDI_INJ.COM           ← print current active mode
+```
 
 ### Compiling
 
@@ -124,10 +150,10 @@ compile.bat
 ### Running (inside the VM)
 
 ```
-C:\AGENT\MIDI_INJ.COM
+C:\AGENT\MIDI_INJ.COM [/VR | /FMS4 | /DEFAULT]
 ```
 
-No arguments.  The TSR prints a confirmation message and stays resident.  Run it once before starting a synthesizer.
+Run once before starting a synthesizer.  The TSR prints a confirmation message and stays resident.  See **Flags** above for layout options.
 
 ---
 
