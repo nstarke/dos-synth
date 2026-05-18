@@ -5,12 +5,28 @@ A collection of Music, Sound, and Synthesizer programs for MS-DOS 6.22, running 
 ## How to Use
 
 1. Install [86Box](https://github.com/86Box/86Box).
-2. Open the VM using the `86box.cfg` in this repository.
-3. Load the `dos-synth.vhd` disk image.
+2. Install the VM into your 86Box VMs directory using the provided script (see **Installing the VM** below). **Do not** run the VM directly from this repository — 86Box writes NVR/CMOS state back to the VM directory during use, so running in-place will dirty the repo and risks corrupting the CMOS files that are version-controlled here.
+3. Open the VM in 86Box from the installed location.
 4. Start a synthesizer (see **Synths** below).
 5. Run `C:\AGENT\MIDI_INJ.COM` inside the VM to activate the MIDI agent.
 6. Start the MIDI bridge on the host (see **MIDI Bridge** below).
 7. Route your MIDI keyboard or DAW to the bridge and play.
+
+## Installing the VM
+
+Use the script in `tools/` for your OS to copy `86box.cfg`, `dos-synth.vhd`, and `nvr/` into a `dos-synth` subdirectory of your 86Box VMs folder.
+
+**Windows:**
+```bat
+tools\copy-vm.bat
+```
+Defaults to `%USERPROFILE%\86Box Vms`. Override with `tools\copy-vm.bat "C:\path\to\86Box Vms"`.
+
+**Linux / macOS:**
+```sh
+tools/copy-vm.sh
+```
+Defaults to `~/.config/86Box`. Override with `tools/copy-vm.sh /path/to/86Box`.
 
 ## Synths
 
