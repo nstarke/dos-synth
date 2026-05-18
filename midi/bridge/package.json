@@ -6,8 +6,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "list":  "node index.js --list",
-    "test":  "node test.js"
+    "list": "node index.js --list",
+    "test": "node test.js"
   },
   "dependencies": {
     "jzz": "^1.8.8"

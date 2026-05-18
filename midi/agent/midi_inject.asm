@@ -11,10 +11,11 @@
 ; note-off, so the key appears held for the full MIDI note duration and the
 ; synthesizer sustains accordingly.
 ;
-; Usage: MIDI_INJ [/VR | /FMS4 | /DEFAULT]
+; Usage: MIDI_INJ [/VR | /FMS4 | /DEFAULT | /H]
 ;   /VR      VR_DEMO.EXE key layout (awsdefyhujik), 12-note clamping
 ;   /FMS4    default layout, 12-note clamping only (no q-row keys)
 ;   /DEFAULT restore two-octave default layout
+;   /H       print usage help and exit (no install, no hot-swap)
 ;
 ; If the TSR is already installed, re-running with a flag hot-swaps the
 ; active key layout without rebooting.  Running with no flag reports the
@@ -387,6 +388,20 @@ install:
     cmp al, '/'
     jne .find_slash
 
+    ; /H — print usage help and exit
+    cmp cx, 1
+    jb .try_vr
+    mov al, [si]
+    or al, 0x20
+    cmp al, 'h'
+    jne .try_vr
+    mov dx, msg_help
+    mov ah, 9
+    int 21h
+    mov ax, 0x4C00
+    int 21h
+
+.try_vr:
     ; /VR — 2 chars
     cmp cx, 2
     jb .find_slash
@@ -633,3 +648,13 @@ msg_stat_vr     db 'Active: /VR (awsdefyhujik).', 13, 10, '$'
 msg_stat_fms4   db 'Active: /FMS4 (zsxdcvgbhnjm).', 13, 10, '$'
 msg_no_mpu      db 'MPU-401 not found or did not ACK UART mode.', 13, 10, '$'
 msg_conflict    db 'Error: /VR, /FMS4, /DEFAULT are mutually exclusive.', 13, 10, '$'
+msg_help:
+    db 'MIDI_INJ - MPU-401 MIDI to keyboard scancode TSR', 13, 10
+    db 'Usage: MIDI_INJ [/VR | /FMS4 | /DEFAULT | /H]', 13, 10
+    db '  (none)   Default two-octave layout (zsxdcvgbhnjm / q2w3er5t6y7u)', 13, 10
+    db '  /VR      VR_DEMO.EXE layout (awsdefyhujik), one octave', 13, 10
+    db '  /FMS4    FMS4 layout (zsxdcvgbhnjm), one octave', 13, 10
+    db '  /DEFAULT Restore default two-octave layout', 13, 10
+    db '  /H       Show this help and exit', 13, 10
+    db 'Re-running with a flag while installed hot-swaps the layout.', 13, 10
+    db 'Running with no flag while installed prints the active mode.', 13, 10, '$'

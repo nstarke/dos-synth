@@ -126,10 +126,10 @@ The agent works as follows:
 ### Flags
 
 ```
-MIDI_INJ [/VR | /FMS4 | /DEFAULT]
+MIDI_INJ [/VR | /FMS4 | /DEFAULT | /H]
 ```
 
-The flags select the key layout and note range.  They are mutually exclusive.
+The mode flags (`/VR`, `/FMS4`, `/DEFAULT`) select the key layout and note range; they are mutually exclusive. `/H` prints usage help and exits without installing or hot-swapping.
 
 | Flag | Layout | Notes | Use for |
 |------|--------|-------|---------|
@@ -137,6 +137,7 @@ The flags select the key layout and note range.  They are mutually exclusive.
 | `/FMS4` | `zsxdcvgbhnjm` | MIDI 48–59 (C3–B3), one octave | FMS4 and synths that don't use the `q`-row |
 | `/VR` | `awsdefyhujik` | MIDI 48–59 (C3–B3), one octave | `VR_DEMO.EXE` |
 | `/DEFAULT` | *(restores default)* | MIDI 48–71 (C3–B4), two octaves | Switch back after `/VR` or `/FMS4` |
+| `/H` | — | — | Print usage help and exit |
 
 **Hot-swapping** — if the TSR is already installed, re-running it with a flag switches the active layout immediately without rebooting the VM:
 
