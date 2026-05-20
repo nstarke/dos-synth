@@ -305,10 +305,11 @@ handler08:
     push cx
     push dx
 
-    ; -- Dequeue and inject one scancode --
+    ; -- Dequeue and inject all pending scancodes --
+.inject_loop:
     mov al, [cs:q_rd]
     cmp al, [cs:q_wr]
-    je  .mpu                    ; queue empty, skip injection
+    je  .mpu                    ; queue empty, done injecting
 
     xor bx, bx
     mov bl, al
@@ -321,6 +322,8 @@ handler08:
     mov [cs:q_rd], bl           ; advance consumer pointer
 
     call kbc_inject             ; fires IRQ1/INT 9
+
+    jmp .inject_loop
 
     ; -- Poll MPU-401 for incoming MIDI bytes --
 .mpu:
