@@ -20,13 +20,21 @@ Use the script in `tools/` for your OS to copy `86box.cfg`, `dos-synth.vhd`, and
 ```bat
 tools\copy-vm.bat
 ```
-Defaults to `%USERPROFILE%\86Box Vms`. Override with `tools\copy-vm.bat "C:\path\to\86Box Vms"`.
+Defaults to `%USERPROFILE%\86Box Vms`. Override the destination with a positional argument, and the VM folder name with `--name`:
+```bat
+tools\copy-vm.bat "C:\path\to\86Box Vms"
+tools\copy-vm.bat --name my-synth
+```
 
 **Linux / macOS:**
 ```sh
 tools/copy-vm.sh
 ```
-Defaults to `~/.config/86Box`. Override with `tools/copy-vm.sh /path/to/86Box`.
+Defaults to `~/.config/86Box`. Override the destination with a positional argument, and the VM folder name with `--name`:
+```sh
+tools/copy-vm.sh /path/to/86Box
+tools/copy-vm.sh --name my-synth
+```
 
 ## Synths
 
@@ -167,7 +175,7 @@ compile.bat
 ### Running (inside the VM)
 
 ```
-C:\AGENT\MIDI_INJ.COM [/VR | /FMS4 | /DEFAULT]
+C:\AGENT\MIDI_INJ.COM [/VR | /FMS4 | /DEFAULT | /H]
 ```
 
 Run once before starting a synthesizer.  The TSR prints a confirmation message and stays resident.  See **Flags** above for layout options.
