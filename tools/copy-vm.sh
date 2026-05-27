@@ -2,7 +2,13 @@
 set -e
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
-DEST_ROOT="${HOME}/.config/86Box"
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    DEST_ROOT="${HOME}/Library/Application Support/86Box/Virtual Machines"
+else
+    DEST_ROOT="${HOME}/.config/86Box"
+fi
+
 VM_NAME="dos-synth"
 
 while [[ $# -gt 0 ]]; do
